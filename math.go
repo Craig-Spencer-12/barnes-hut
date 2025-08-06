@@ -4,15 +4,8 @@ import "math"
 
 const (
 	// Gravitational Constant
-	// G = 6.67430e-11
 	G = 6.67430e-11
 )
-
-// func distance(p1, p2 Point) float32 {
-// 	dx := float64(p2.X - p1.X)
-// 	dy := float64(p2.Y - p1.Y)
-// 	return float32(math.Hypot(dx, dy))
-// }
 
 func CalculateForces(mainPlanet, otherPlanet Planet) (xForce float32, yForce float32, collision bool) {
 	dx := float64(otherPlanet.pos.X - mainPlanet.pos.X)
