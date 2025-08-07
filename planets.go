@@ -1,8 +1,10 @@
 package main
 
 import (
+	"image/color"
 	"math"
 	"math/rand"
+	"sync"
 )
 
 func NewPlanet(p Planet) Planet {
@@ -12,10 +14,14 @@ func NewPlanet(p Planet) Planet {
 	p.vel.X = float32(math.Tan(float64((p.pos.Y-screenHeight/2)/screenHeight))) * 5
 	p.vel.Y = float32(math.Tan(float64((p.pos.X-screenWidth/2)/screenWidth))) * -5
 
+	if p.color.R == 0 {
+		p.color = planetColors[rand.Intn(len(planetColors))]
+	}
+
 	return p
 }
 
-func (g *Game) updatePlanetPosition(index int) {
+func (g *Game) updatePlanetPositionSlow(index int) {
 	mainPlanet := g.state[index]
 	var totalForceX float32 = 0
 	var totalForceY float32 = 0
@@ -26,11 +32,18 @@ func (g *Game) updatePlanetPosition(index int) {
 			continue
 		}
 
-		xForce, yForce, collision := CalculateForces(mainPlanet, otherPlanet)
+		xForce, yForce, collision := CalculateForcesSlow(mainPlanet, otherPlanet)
 		if collision {
-			xVel, yVel := collisionVelocities(mainPlanet, otherPlanet)
-			g.state[index].vel.X = xVel
-			g.state[index].vel.Y = yVel
+			if otherPlanet.isSun {
+				g.state[index].isDead = true
+				return
+			}
+
+			if collisionsOn {
+				xVel, yVel := collisionVelocities(mainPlanet, otherPlanet)
+				g.state[index].vel.X = xVel
+				g.state[index].vel.Y = yVel
+			}
 		}
 
 		totalForceX += xForce
@@ -50,7 +63,7 @@ func (g *Game) generatePlanets() {
 	for i := 0; i < randomPlanetCount; i++ {
 		newPlanet := NewPlanet(
 			Planet{
-				radius:  rand.Float32() * 10,
+				radius:  rand.Float32() * maxPlanetSize,
 				density: rand.Float32()*2000 + 15000,
 
 				pos: Pair{
@@ -67,8 +80,11 @@ func (g *Game) generatePlanets() {
 func (g *Game) generateSun() {
 	newPlanet := NewPlanet(
 		Planet{
-			radius:  70,
+			radius:  sunSize,
 			density: 2000000000,
+			isSun:   true,
+
+			color: color.RGBA{R: 255, G: 215, B: 0, A: 255},
 
 			pos: Pair{
 				screenHeight / 2,
@@ -79,4 +95,39 @@ func (g *Game) generateSun() {
 	newPlanet.vel.X = 0
 	newPlanet.vel.Y = 0
 	g.state = append(g.state, newPlanet)
+}
+
+func (g *Game) updateAllPlanets() {
+
+	var wg sync.WaitGroup
+	for i := range g.state {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			g.updatePlanetPosition(i)
+			if g.state[i].collisionCooldown > 0 {
+				g.state[i].collisionCooldown--
+			}
+		}(i)
+	}
+	wg.Wait()
+}
+
+func movingTogether(planetA, planetB Planet) bool {
+	// Relative velocity
+	dvx := planetB.vel.X - planetA.vel.X
+	dvy := planetB.vel.Y - planetA.vel.Y
+
+	// Relative position
+	dx := planetB.pos.X - planetA.pos.X
+	dy := planetB.pos.Y - planetA.pos.Y
+
+	// Dot product to check if moving toward each other
+	dot := dvx*dx + dvy*dy
+
+	if dot < 0 {
+		return false
+	}
+
+	return true
 }

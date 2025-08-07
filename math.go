@@ -7,7 +7,7 @@ const (
 	G = 6.67430e-11
 )
 
-func CalculateForces(mainPlanet, otherPlanet Planet) (xForce float32, yForce float32, collision bool) {
+func CalculateForcesSlow(mainPlanet, otherPlanet Planet) (xForce float32, yForce float32, collision bool) {
 	dx := float64(otherPlanet.pos.X - mainPlanet.pos.X)
 	dy := float64(otherPlanet.pos.Y - mainPlanet.pos.Y)
 	distance := float32(math.Hypot(dx, dy))
@@ -26,13 +26,17 @@ func CalculateForces(mainPlanet, otherPlanet Planet) (xForce float32, yForce flo
 }
 
 func collisionVelocities(mainPlanet, otherPlanet Planet) (xVel, yVel float32) {
-	// Elastic
-	// xVel = ((mainPlanet.mass-otherPlanet.mass)*mainPlanet.vel.X + (2 * otherPlanet.mass * otherPlanet.vel.X)) / (mainPlanet.mass + otherPlanet.mass)
-	// yVel = ((mainPlanet.mass-otherPlanet.mass)*mainPlanet.vel.Y + (2 * otherPlanet.mass * otherPlanet.vel.Y)) / (mainPlanet.mass + otherPlanet.mass)
+	m1 := mainPlanet.mass
+	m2 := otherPlanet.mass
 
-	// Inelastic
-	xVel = (mainPlanet.mass*mainPlanet.vel.X + otherPlanet.mass*otherPlanet.vel.X) / (mainPlanet.mass + otherPlanet.mass)
-	yVel = (mainPlanet.mass*mainPlanet.vel.Y + otherPlanet.mass*otherPlanet.vel.Y) / (mainPlanet.mass + otherPlanet.mass)
+	xInelastic := (m1*mainPlanet.vel.X + m2*otherPlanet.vel.X) / (m1 + m2)
+	yInelastic := (m1*mainPlanet.vel.Y + m2*otherPlanet.vel.Y) / (m1 + m2)
+
+	xElastic := ((m1-m2)*mainPlanet.vel.X + 2*m2*otherPlanet.vel.X) / (m1 + m2)
+	yElastic := ((m1-m2)*mainPlanet.vel.Y + 2*m2*otherPlanet.vel.Y) / (m1 + m2)
+
+	xVel = restitution*xElastic + (1-restitution)*xInelastic
+	yVel = restitution*yElastic + (1-restitution)*yInelastic
 
 	return xVel, yVel
 }
