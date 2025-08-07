@@ -26,10 +26,41 @@ func (cam *Camera) Update() {
 		cam.pos.X += speed
 	}
 
+	// _, wheelY := ebiten.Wheel()
+	// if wheelY > 0 {
+	// 	cam.zoom += wheelY * 0.03
+	// 	if cam.zoom < 0.1 {
+	// 		cam.zoom = 0.1
+	// 	}
+	// }
+
+	mx, my := ebiten.CursorPosition()
+	mouseX := float64(mx)
+	mouseY := float64(my)
+
 	_, wheelY := ebiten.Wheel()
-	cam.zoom += float64(wheelY) * 0.03
-	if cam.zoom < 0.1 {
-		cam.zoom = 0.1
+	if wheelY != 0 {
+		zoomFactor := 1.0 + wheelY*0.1
+		oldZoom := cam.zoom
+		newZoom := cam.zoom * zoomFactor
+
+		// Calculate the world position under the mouse before zoom
+		worldXBefore := cam.pos.X + mouseX/oldZoom
+		worldYBefore := cam.pos.Y + mouseY/oldZoom
+
+		// Apply new zoom
+		cam.zoom = newZoom
+		if cam.zoom < 0.1 {
+			cam.zoom = 0.1
+		}
+
+		// Calculate the world position under the mouse after zoom
+		worldXAfter := cam.pos.X + mouseX/cam.zoom
+		worldYAfter := cam.pos.Y + mouseY/cam.zoom
+
+		// Offset camera to keep mouse-over-world position stable
+		cam.pos.X += worldXBefore - worldXAfter
+		cam.pos.Y += worldYBefore - worldYAfter
 	}
 
 	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
