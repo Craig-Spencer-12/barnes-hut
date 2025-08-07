@@ -11,8 +11,8 @@ func NewPlanet(p Planet) Planet {
 	p.mass = math.Pi * p.radius * p.radius * p.density
 	p.nextPos = p.pos
 
-	p.vel.X = float32(math.Tan(float64((p.pos.Y-screenHeight/2)/screenHeight))) * 5
-	p.vel.Y = float32(math.Tan(float64((p.pos.X-screenWidth/2)/screenWidth))) * -5
+	p.vel.X = float64(math.Tan(float64((p.pos.Y-screenHeight/2)/screenHeight))) * 5
+	p.vel.Y = float64(math.Tan(float64((p.pos.X-screenWidth/2)/screenWidth))) * -5
 
 	if p.color.R == 0 {
 		p.color = planetColors[rand.Intn(len(planetColors))]
@@ -23,8 +23,8 @@ func NewPlanet(p Planet) Planet {
 
 func (g *Game) updatePlanetPositionSlow(index int) {
 	mainPlanet := g.state[index]
-	var totalForceX float32 = 0
-	var totalForceY float32 = 0
+	var totalForceX float64 = 0
+	var totalForceY float64 = 0
 	collision := false
 
 	for i, otherPlanet := range g.state {
@@ -63,12 +63,12 @@ func (g *Game) generatePlanets() {
 	for i := 0; i < randomPlanetCount; i++ {
 		newPlanet := NewPlanet(
 			Planet{
-				radius:  rand.Float32() * maxPlanetSize,
-				density: rand.Float32()*2000 + 15000,
+				radius:  rand.Float64() * maxPlanetSize,
+				density: rand.Float64()*2000 + 15000,
 
 				pos: Pair{
-					rand.Float32() * screenHeight,
-					rand.Float32() * screenWidth,
+					rand.Float64() * screenWidth,
+					rand.Float64() * screenHeight,
 				},
 			},
 		)
@@ -87,8 +87,8 @@ func (g *Game) generateSun() {
 			color: color.RGBA{R: 255, G: 215, B: 0, A: 255},
 
 			pos: Pair{
-				screenHeight / 2,
 				screenWidth / 2,
+				screenHeight / 2,
 			},
 		},
 	)

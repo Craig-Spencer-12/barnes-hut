@@ -13,12 +13,12 @@ type Node struct {
 	child  [4]*Node
 
 	topLeft Pair
-	size    float32
+	size    float64
 
 	body *Planet
 
 	centerOfMass Pair
-	totalMass    float32
+	totalMass    float64
 }
 
 func (g *Game) CreateTree() {
@@ -44,8 +44,8 @@ func CalculateCentersOfMass(n *Node) {
 		return
 	}
 
-	var numeratorX, numeratorY float32 = 0, 0
-	var denominator float32 = 0
+	var numeratorX, numeratorY float64 = 0, 0
+	var denominator float64 = 0
 	for _, node := range n.child {
 		if node != nil {
 			if n.totalMass == 0 {
@@ -111,7 +111,7 @@ func (n *Node) insert(planet *Planet) {
 	n.child[region].insert(planet)
 }
 
-func (g *Game) computeBounds() (topLeft Pair, size float32) {
+func (g *Game) computeBounds() (topLeft Pair, size float64) {
 	if len(g.state) == 0 {
 		return Pair{0, 0}, 0
 	}
@@ -136,24 +136,28 @@ func (g *Game) computeBounds() (topLeft Pair, size float32) {
 
 	width := maxX - minX
 	height := maxY - minY
-	size = float32(math.Max(float64(width), float64(height)))
+	size = float64(math.Max(float64(width), float64(height)))
 	buffer := size * 0.1
 
 	return Pair{minX - buffer, minY - buffer}, size + buffer*2
 }
 
-func drawBarnesHutBorders(screen *ebiten.Image, n *Node) {
+func (g *Game) drawBarnesHutBorders(screen *ebiten.Image, n *Node) {
 	if n == nil {
 		return
 	}
 
-	vector.StrokeLine(screen, n.topLeft.X, n.topLeft.Y, n.topLeft.X+n.size, n.topLeft.Y, 1, color.White, true)
-	vector.StrokeLine(screen, n.topLeft.X, n.topLeft.Y, n.topLeft.X, n.topLeft.Y+n.size, 1, color.White, true)
-	vector.StrokeLine(screen, n.topLeft.X+n.size, n.topLeft.Y+n.size, n.topLeft.X, n.topLeft.Y+n.size, 1, color.White, true)
-	vector.StrokeLine(screen, n.topLeft.X+n.size, n.topLeft.Y+n.size, n.topLeft.X+n.size, n.topLeft.Y, 1, color.White, true)
+	x := float32((n.topLeft.X - g.camera.pos.X) * g.camera.zoom)
+	y := float32((n.topLeft.Y - g.camera.pos.Y) * g.camera.zoom)
+	size := float32(n.size * g.camera.zoom)
+
+	vector.StrokeLine(screen, x, y, x+size, y, 1, color.White, true)
+	vector.StrokeLine(screen, x, y, x, y+size, 1, color.White, true)
+	vector.StrokeLine(screen, x+size, y+size, x, y+size, 1, color.White, true)
+	vector.StrokeLine(screen, x+size, y+size, x+size, y, 1, color.White, true)
 
 	for i := range n.child {
-		drawBarnesHutBorders(screen, n.child[i])
+		g.drawBarnesHutBorders(screen, n.child[i])
 	}
 }
 
@@ -176,7 +180,7 @@ func (g *Game) updatePlanetPosition(index int) {
 	mainPlanet.nextPos.Y = mainPlanet.pos.Y + mainPlanet.vel.Y
 }
 
-func calculateForceFromTree(n *Node, target *Planet, θ float32) (fx, fy float32, collided bool) {
+func calculateForceFromTree(n *Node, target *Planet, θ float64) (fx, fy float64, collided bool) {
 	if n == nil || (n.body == target && n.body != nil) {
 		return 0, 0, false
 	}
@@ -185,7 +189,7 @@ func calculateForceFromTree(n *Node, target *Planet, θ float32) (fx, fy float32
 	dx := n.centerOfMass.X - target.pos.X
 	dy := n.centerOfMass.Y - target.pos.Y
 	distSq := dx*dx + dy*dy
-	dist := float32(math.Sqrt(float64(distSq)))
+	dist := float64(math.Sqrt(float64(distSq)))
 
 	// Collision detection (optional: tune threshold)
 	if n.body != nil && dist < target.radius+n.body.radius {
@@ -215,7 +219,7 @@ func calculateForceFromTree(n *Node, target *Planet, θ float32) (fx, fy float32
 	}
 
 	// Otherwise, recursively calculate from children
-	var totalX, totalY float32
+	var totalX, totalY float64
 	for _, child := range n.child {
 		cx, cy, ccol := calculateForceFromTree(child, target, θ)
 		totalX += cx
@@ -227,13 +231,13 @@ func calculateForceFromTree(n *Node, target *Planet, θ float32) (fx, fy float32
 	return totalX, totalY, false
 }
 
-func CalculateGravityForce(target Planet, otherPos Pair, otherMass float32) (fx, fy float32) {
+func CalculateGravityForce(target Planet, otherPos Pair, otherMass float64) (fx, fy float64) {
 	const G = 6.674e-11 // or scale to your simulation
 
 	dx := otherPos.X - target.pos.X
 	dy := otherPos.Y - target.pos.Y
 	distSq := dx*dx + dy*dy + 1e-4 // avoid divide-by-zero
-	dist := float32(math.Sqrt(float64(distSq)))
+	dist := float64(math.Sqrt(float64(distSq)))
 
 	force := G * target.mass * otherMass / distSq
 	fx = force * dx / dist

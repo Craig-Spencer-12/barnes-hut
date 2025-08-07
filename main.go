@@ -13,13 +13,13 @@ import (
 
 const (
 	screenHeight = 1024
-	screenWidth  = 1024
+	screenWidth  = 2048
 
-	randomPlanetCount = 10000
+	randomPlanetCount = 1000
 	startPaused       = false
 	startDrawLines    = false
 
-	maxPlanetSize = 3
+	maxPlanetSize = 10
 	sunSize       = 70
 
 	collisionCooldown = 5
@@ -34,6 +34,7 @@ type Game struct {
 	state []Planet
 	root  *Node
 
+	camera     Camera
 	paused     bool
 	drawLines  bool
 	fps        time.Duration
@@ -62,12 +63,14 @@ func (g *Game) Update() error {
 		g.fps = math.MaxInt
 	}
 
-	g.CreateTree()
-	CalculateCentersOfMass(g.root)
+	g.camera.Update()
 
 	if g.paused {
 		return nil
 	}
+
+	g.CreateTree()
+	CalculateCentersOfMass(g.root)
 
 	now := time.Now()
 	if now.Sub(g.lastUpdate) < time.Second/g.fps {
@@ -95,24 +98,35 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	screen.Fill(color.Black)
 
 	if g.drawLines {
-		drawBarnesHutBorders(screen, g.root)
+		g.drawBarnesHutBorders(screen, g.root)
 	}
 
 	for _, planet := range g.state {
-		vector.DrawFilledCircle(screen, planet.pos.X, planet.pos.Y, planet.radius, planet.color, true)
+		x := float32((planet.pos.X - g.camera.pos.X) * g.camera.zoom)
+		y := float32((planet.pos.Y - g.camera.pos.Y) * g.camera.zoom)
+		r := float32(planet.radius * g.camera.zoom)
+
+		vector.DrawFilledCircle(screen, x, y, r, planet.color, true)
 	}
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
-	return screenWidth, screenHeight
+	return outsideWidth, outsideHeight
 }
 
 func main() {
 	ebiten.SetTPS(ebiten.SyncWithFPS)
 	ebiten.SetWindowSize(screenWidth, screenHeight)
 	ebiten.SetWindowTitle("Barnes-Hut Planet Sim")
+	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 
-	game := &Game{paused: startPaused, drawLines: startDrawLines, fps: math.MaxInt, lastUpdate: time.Now()}
+	game := &Game{
+		paused:     startPaused,
+		drawLines:  startDrawLines,
+		fps:        math.MaxInt,
+		lastUpdate: time.Now(),
+		camera:     Camera{zoom: 1},
+	}
 	game.generatePlanets()
 	game.generateSun()
 	if err := ebiten.RunGame(game); err != nil {

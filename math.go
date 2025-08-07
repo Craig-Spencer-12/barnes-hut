@@ -7,10 +7,10 @@ const (
 	G = 6.67430e-11
 )
 
-func CalculateForcesSlow(mainPlanet, otherPlanet Planet) (xForce float32, yForce float32, collision bool) {
+func CalculateForcesSlow(mainPlanet, otherPlanet Planet) (xForce float64, yForce float64, collision bool) {
 	dx := float64(otherPlanet.pos.X - mainPlanet.pos.X)
 	dy := float64(otherPlanet.pos.Y - mainPlanet.pos.Y)
-	distance := float32(math.Hypot(dx, dy))
+	distance := float64(math.Hypot(dx, dy))
 
 	// Collision Check
 	if distance < mainPlanet.radius+otherPlanet.radius {
@@ -19,13 +19,13 @@ func CalculateForcesSlow(mainPlanet, otherPlanet Planet) (xForce float32, yForce
 
 	force := G * mainPlanet.mass * otherPlanet.mass / (distance * distance)
 
-	xForce = force * float32(dx) / distance
-	yForce = force * float32(dy) / distance
+	xForce = force * float64(dx) / distance
+	yForce = force * float64(dy) / distance
 
 	return xForce, yForce, false
 }
 
-func collisionVelocities(mainPlanet, otherPlanet Planet) (xVel, yVel float32) {
+func collisionVelocities(mainPlanet, otherPlanet Planet) (xVel, yVel float64) {
 	m1 := mainPlanet.mass
 	m2 := otherPlanet.mass
 

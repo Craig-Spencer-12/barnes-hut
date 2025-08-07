@@ -3,9 +3,9 @@ package main
 import "image/color"
 
 type Planet struct {
-	radius            float32
-	density           float32
-	mass              float32
+	radius            float64
+	density           float64
+	mass              float64
 	isSun             bool
 	isDead            bool
 	collisionCooldown int
@@ -18,8 +18,8 @@ type Planet struct {
 }
 
 type Pair struct {
-	X float32
-	Y float32
+	X float64
+	Y float64
 }
 
 var planetColors = [6]color.RGBA{
