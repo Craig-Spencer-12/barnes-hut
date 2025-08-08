@@ -1,27 +1,10 @@
 package main
 
 import (
-	"image/color"
 	"math"
-
-	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
-type Node struct {
-	parent *Node
-	child  [4]*Node
-
-	topLeft Pair
-	size    float64
-
-	body *Planet
-
-	centerOfMass Pair
-	totalMass    float64
-}
-
-func (g *Game) CreateTree() {
+func (g *Game) BuldTree() {
 	topLeft, size := g.computeBounds()
 	g.root = &Node{
 		topLeft: topLeft,
@@ -33,7 +16,7 @@ func (g *Game) CreateTree() {
 	}
 }
 
-func CalculateCentersOfMass(n *Node) {
+func CalculateCentersOfMassRecursive(n *Node) {
 	if n == nil {
 		return
 	}
@@ -49,7 +32,7 @@ func CalculateCentersOfMass(n *Node) {
 	for _, node := range n.child {
 		if node != nil {
 			if n.totalMass == 0 {
-				CalculateCentersOfMass(node)
+				CalculateCentersOfMassRecursive(node)
 			}
 			numeratorX += node.totalMass * node.centerOfMass.X
 			numeratorY += node.totalMass * node.centerOfMass.Y
@@ -63,7 +46,8 @@ func CalculateCentersOfMass(n *Node) {
 }
 
 func (n *Node) insert(planet *Planet) {
-	// which quad is new node
+
+	// Find which region planet is in
 	region := 0
 	newTopLeft := n.topLeft
 	newSize := n.size / 2
@@ -76,7 +60,7 @@ func (n *Node) insert(planet *Planet) {
 		newTopLeft.Y += newSize
 	}
 
-	// if that leaf is empty just place the planet there
+	// Add leaf if theres room
 	if n.child[region] == nil {
 		n.child[region] = &Node{
 			parent: n,
@@ -89,9 +73,8 @@ func (n *Node) insert(planet *Planet) {
 		return
 	}
 
-	// else if that leaf is full we need to subdivide that region until they occupy different regions
+	// If desired leaf is full, subdivide region
 	// replace the node with a subdivided node and insert both nodes on that  subdivided node
-
 	existingPlanet := n.child[region].body
 	if existingPlanet != nil {
 		n.child[region] = &Node{
@@ -100,9 +83,9 @@ func (n *Node) insert(planet *Planet) {
 			size:    newSize,
 		}
 
-		// making sure planets aren't on top of each other causing infinte recursion
-		dx := math.Abs(float64(existingPlanet.pos.X - planet.pos.X))
-		dy := math.Abs(float64(existingPlanet.pos.Y - planet.pos.Y))
+		// Edge Case: planets too close together cause infinte recursion
+		dx := math.Abs(existingPlanet.pos.X - planet.pos.X)
+		dy := math.Abs(existingPlanet.pos.Y - planet.pos.Y)
 		if dx > minDistance || dy > minDistance {
 			n.child[region].insert(existingPlanet)
 		}
@@ -136,51 +119,13 @@ func (g *Game) computeBounds() (topLeft Pair, size float64) {
 
 	width := maxX - minX
 	height := maxY - minY
-	size = float64(math.Max(float64(width), float64(height)))
+	size = math.Max(width, height)
 	buffer := size * 0.1
 
 	return Pair{minX - buffer, minY - buffer}, size + buffer*2
 }
 
-func (g *Game) drawBarnesHutBorders(screen *ebiten.Image, n *Node) {
-	if n == nil {
-		return
-	}
-
-	x := float32((n.topLeft.X - g.camera.pos.X) * g.camera.zoom)
-	y := float32((n.topLeft.Y - g.camera.pos.Y) * g.camera.zoom)
-	size := float32(n.size * g.camera.zoom)
-
-	vector.StrokeLine(screen, x, y, x+size, y, 1, color.White, true)
-	vector.StrokeLine(screen, x, y, x, y+size, 1, color.White, true)
-	vector.StrokeLine(screen, x+size, y+size, x, y+size, 1, color.White, true)
-	vector.StrokeLine(screen, x+size, y+size, x+size, y, 1, color.White, true)
-
-	for i := range n.child {
-		g.drawBarnesHutBorders(screen, n.child[i])
-	}
-}
-
-func (g *Game) updatePlanetPosition(index int) {
-	mainPlanet := &g.state[index]
-	if mainPlanet.isDead {
-		return
-	}
-
-	totalForceX, totalForceY, collidedWithSun := calculateForceFromTree(g.root, mainPlanet, theta)
-	if collidedWithSun {
-		mainPlanet.isDead = true
-		return
-	}
-
-	mainPlanet.vel.X += totalForceX / mainPlanet.mass
-	mainPlanet.vel.Y += totalForceY / mainPlanet.mass
-
-	mainPlanet.nextPos.X = mainPlanet.pos.X + mainPlanet.vel.X
-	mainPlanet.nextPos.Y = mainPlanet.pos.Y + mainPlanet.vel.Y
-}
-
-func calculateForceFromTree(n *Node, target *Planet, θ float64) (fx, fy float64, collided bool) {
+func calculateForceFromTree(n *Node, target *Planet) (fx, fy float64, collided bool) {
 	if n == nil || (n.body == target && n.body != nil) {
 		return 0, 0, false
 	}
@@ -189,39 +134,35 @@ func calculateForceFromTree(n *Node, target *Planet, θ float64) (fx, fy float64
 	dx := n.centerOfMass.X - target.pos.X
 	dy := n.centerOfMass.Y - target.pos.Y
 	distSq := dx*dx + dy*dy
-	dist := float64(math.Sqrt(float64(distSq)))
+	dist := math.Sqrt(distSq)
 
-	// Collision detection (optional: tune threshold)
+	// Collision detection
 	if n.body != nil && dist < target.radius+n.body.radius {
 		if n.body.isSun {
 			return 0, 0, true
 		}
 
-		if target.collisionCooldown == 0 && !movingTogether(*n.body, *target) {
-			vx, vy := collisionVelocities(*target, *n.body)
-			target.vel.X = vx
-			target.vel.Y = vy
-			target.collisionCooldown = collisionCooldown
-			return 0, 0, false
-		}
+		// if target.collisionCooldown == 0 && !movingTogether(*n.body, *target) {
+		// 	vx, vy := collisionVelocities(*target, *n.body)
+		// 	target.vel.X = vx
+		// 	target.vel.Y = vy
+		// 	target.collisionCooldown = collisionCooldown
+		// 	return 0, 0, false
+		// }
 	}
 
-	// Empty node (no mass)
 	if n.totalMass == 0 {
 		return 0, 0, false
 	}
 
-	// Is this region far enough to approximate?
-	if n.body != nil || (n.size/dist < θ) {
-		// Approximate force from this node's center of mass
+	if n.body != nil || (n.size/dist < theta) {
 		fx, fy := CalculateGravityForce(*target, n.centerOfMass, n.totalMass)
 		return fx, fy, false
 	}
 
-	// Otherwise, recursively calculate from children
 	var totalX, totalY float64
 	for _, child := range n.child {
-		cx, cy, ccol := calculateForceFromTree(child, target, θ)
+		cx, cy, ccol := calculateForceFromTree(child, target)
 		totalX += cx
 		totalY += cy
 		if ccol {
@@ -232,12 +173,11 @@ func calculateForceFromTree(n *Node, target *Planet, θ float64) (fx, fy float64
 }
 
 func CalculateGravityForce(target Planet, otherPos Pair, otherMass float64) (fx, fy float64) {
-	const G = 6.674e-11 // or scale to your simulation
 
 	dx := otherPos.X - target.pos.X
 	dy := otherPos.Y - target.pos.Y
-	distSq := dx*dx + dy*dy + 1e-4 // avoid divide-by-zero
-	dist := float64(math.Sqrt(float64(distSq)))
+	distSq := dx*dx + dy*dy + nearZero
+	dist := math.Sqrt(distSq)
 
 	force := G * target.mass * otherMass / distSq
 	fx = force * dx / dist

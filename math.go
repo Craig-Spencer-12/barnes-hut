@@ -2,15 +2,10 @@ package main
 
 import "math"
 
-const (
-	// Gravitational Constant
-	G = 6.67430e-11
-)
-
 func CalculateForcesSlow(mainPlanet, otherPlanet Planet) (xForce float64, yForce float64, collision bool) {
-	dx := float64(otherPlanet.pos.X - mainPlanet.pos.X)
-	dy := float64(otherPlanet.pos.Y - mainPlanet.pos.Y)
-	distance := float64(math.Hypot(dx, dy))
+	dx := otherPlanet.pos.X - mainPlanet.pos.X
+	dy := otherPlanet.pos.Y - mainPlanet.pos.Y
+	distance := math.Hypot(dx, dy)
 
 	// Collision Check
 	if distance < mainPlanet.radius+otherPlanet.radius {
@@ -19,8 +14,8 @@ func CalculateForcesSlow(mainPlanet, otherPlanet Planet) (xForce float64, yForce
 
 	force := G * mainPlanet.mass * otherPlanet.mass / (distance * distance)
 
-	xForce = force * float64(dx) / distance
-	yForce = force * float64(dy) / distance
+	xForce = force * dx / distance
+	yForce = force * dy / distance
 
 	return xForce, yForce, false
 }

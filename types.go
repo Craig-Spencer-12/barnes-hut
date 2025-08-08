@@ -1,6 +1,18 @@
 package main
 
-import "image/color"
+import (
+	"image/color"
+)
+
+type Game struct {
+	state []Planet
+	root  *Node
+
+	camera    Camera
+	paused    bool
+	drawLines bool
+	stepFrame bool
+}
 
 type Planet struct {
 	radius            float64
@@ -22,11 +34,15 @@ type Pair struct {
 	Y float64
 }
 
-var planetColors = [6]color.RGBA{
-	{R: 70, G: 130, B: 180, A: 255},  // Steel blue (Earth-like)
-	{R: 205, G: 92, B: 92, A: 255},   // Indian red (Mars-like)
-	{R: 255, G: 215, B: 0, A: 255},   // Gold (Venus/gas giant)
-	{R: 100, G: 149, B: 237, A: 255}, // Cornflower blue (Neptune)
-	{R: 210, G: 180, B: 140, A: 255}, // Tan (rocky)
-	{R: 128, G: 0, B: 128, A: 255},   // Purple (exotic)
+type Node struct {
+	parent *Node
+	child  [4]*Node
+
+	topLeft Pair
+	size    float64
+
+	body *Planet
+
+	centerOfMass Pair
+	totalMass    float64
 }
